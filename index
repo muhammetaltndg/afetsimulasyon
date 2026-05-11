@@ -1,582 +1,389 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extreme Event Türkiye</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-
-  <style>
-    body {
-      background: #0f172a;
-      color: #e2e8f0;
-      overflow-x: hidden;
-    }
-
-    .glass {
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .card-hover:hover {
-      transform: translateY(-4px);
-      transition: 0.25s;
-    }
-
-    .pulse-alert {
-      animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(239,68,68,.7); }
-      70% { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
-      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extreme Event - Dijital Dirençlilik Simülasyonu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .transition-all { transition: all 0.3s ease; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+        .emergency-bg { background: linear-gradient(45deg, #1a1a1a, #2d0000); }
+        .progress-bar { transition: width 0.5s ease-in-out; }
+    </style>
 </head>
-<body class="min-h-screen">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
 
-<div id="app" class="p-4 md:p-8 max-w-7xl mx-auto"></div>
-
-<script>
-
-// =========================================
-// OYUN VERİLERİ
-// =========================================
-
-const senaryolar = {
-  sel: {
-    ad: 'Sel Felaketi',
-    renk: 'from-cyan-600 to-blue-900',
-    aciklama: 'Şiddetli yağış sonrası şehir su altında kalıyor.',
-    olaylar: [
-      'Baraj taşmak üzere!',
-      'Kıyı mahallesinde elektrik kesildi!',
-      'Tahliye yolları kapanıyor!'
-    ]
-  },
-  deprem: {
-    ad: 'Deprem',
-    renk: 'from-orange-600 to-red-900',
-    aciklama: 'Büyük bir deprem şehir altyapısını çökertiyor.',
-    olaylar: [
-      'Doğalgaz hattında patlama!',
-      'Köprü çöktü!',
-      'Artçı sarsıntılar devam ediyor!'
-    ]
-  },
-  kasirga: {
-    ad: 'Kasırga',
-    renk: 'from-purple-700 to-slate-900',
-    aciklama: 'Yıkıcı rüzgarlar ve altyapı hasarı büyüyor.',
-    olaylar: [
-      'Elektrik şebekesi çöktü!',
-      'Ağaçlar yolları kapattı!',
-      'İletişim kuleleri hasar gördü!'
-    ]
-  }
-};
-
-const sektorler = [
-  {
-    id: 'hane',
-    ad: 'Hanehalkı',
-    icon: 'home',
-    renk: 'bg-emerald-600'
-  },
-  {
-    id: 'toplum',
-    ad: 'Topluluk Grupları',
-    icon: 'users',
-    renk: 'bg-cyan-600'
-  },
-  {
-    id: 'isletme',
-    ad: 'İşletmeler',
-    icon: 'building-2',
-    renk: 'bg-amber-600'
-  },
-  {
-    id: 'ilk',
-    ad: 'İlk Müdahale Ekipleri',
-    icon: 'shield-alert',
-    renk: 'bg-red-600'
-  },
-  {
-    id: 'yerel',
-    ad: 'Yerel ve Eyalet Yönetimi',
-    icon: 'landmark',
-    renk: 'bg-indigo-600'
-  },
-  {
-    id: 'federal',
-    ad: 'Federal Yönetim',
-    icon: 'badge-alert',
-    renk: 'bg-purple-700'
-  }
-];
-
-// PDF kaynaklarından uyarlanan örnek kaynak havuzu
-const kaynaklar = [
-  {
-    ad: 'Jeneratör ve Yakıt',
-    sektor: 'isletme',
-    maliyet: 4,
-    etki: 8,
-    ikon: 'battery-charging',
-    aciklama: 'Elektrik kesintilerinde kritik enerji sağlar.'
-  },
-  {
-    ad: 'Kum Torbaları',
-    sektor: 'ilk',
-    maliyet: 3,
-    etki: 7,
-    ikon: 'package',
-    aciklama: 'Sel baskınlarına karşı geçici koruma sağlar.'
-  },
-  {
-    ad: 'Acil Durum Tahliye Planı',
-    sektor: 'yerel',
-    maliyet: 5,
-    etki: 10,
-    ikon: 'map',
-    aciklama: 'Vatandaşların güvenli tahliyesini hızlandırır.'
-  },
-  {
-    ad: 'Arama Kurtarma Köpekleri',
-    sektor: 'ilk',
-    maliyet: 6,
-    etki: 10,
-    ikon: 'search',
-    aciklama: 'Enkaz altında kalanların bulunmasını sağlar.'
-  },
-  {
-    ad: 'Su Arıtma Sistemi',
-    sektor: 'hane',
-    maliyet: 4,
-    etki: 8,
-    ikon: 'droplets',
-    aciklama: 'Temiz içme suyu sağlar.'
-  },
-  {
-    ad: 'Mobil İletişim Cihazları',
-    sektor: 'isletme',
-    maliyet: 2,
-    etki: 5,
-    ikon: 'smartphone',
-    aciklama: 'Afet sırasında iletişimi sürdürür.'
-  },
-  {
-    ad: 'Toplumsal Gönüllüler',
-    sektor: 'toplum',
-    maliyet: 3,
-    etki: 7,
-    ikon: 'users',
-    aciklama: 'Yerel koordinasyonu güçlendirir.'
-  },
-  {
-    ad: 'Şehir Genel Uyarı Sistemi',
-    sektor: 'yerel',
-    maliyet: 5,
-    etki: 9,
-    ikon: 'siren',
-    aciklama: 'Erken uyarı ve bilgilendirme sağlar.'
-  }
-];
-
-const challengeKartlari = [
-  {
-    id: 1,
-    baslik: 'Su Baskını Tahliyesi',
-    gerekli: ['Kum Torbaları', 'Acil Durum Tahliye Planı'],
-    puan: 20
-  },
-  {
-    id: 2,
-    baslik: 'Elektrik Krizi',
-    gerekli: ['Jeneratör ve Yakıt'],
-    puan: 15
-  },
-  {
-    id: 3,
-    baslik: 'Enkaz Kurtarma',
-    gerekli: ['Arama Kurtarma Köpekleri'],
-    puan: 25
-  },
-  {
-    id: 4,
-    baslik: 'Temiz Su Dağıtımı',
-    gerekli: ['Su Arıtma Sistemi'],
-    puan: 15
-  }
-];
-
-// =========================================
-// OYUN STATE
-// =========================================
-
-const state = {
-  ekran: 'giris',
-  senaryo: null,
-  sektor: null,
-  butce: 15,
-  secilenKaynaklar: [],
-  skor: 0,
-  loglar: [],
-  haberler: []
-};
-
-const app = document.getElementById('app');
-
-// =========================================
-// RENDER
-// =========================================
-
-function render() {
-  switch(state.ekran) {
-    case 'giris': renderGiris(); break;
-    case 'sektor': renderSektor(); break;
-    case 'prepare': renderPrepare(); break;
-    case 'afet': renderAfet(); break;
-    case 'respond': renderRespond(); break;
-    case 'sonuc': renderSonuc(); break;
-  }
-
-  lucide.createIcons();
-}
-
-// =========================================
-// GİRİŞ
-// =========================================
-
-function renderGiris() {
-  app.innerHTML = `
-    <div class="text-center py-12">
-      <h1 class="text-5xl font-black mb-4">EXTREME EVENT TÜRKİYE</h1>
-      <p class="text-slate-300 text-xl mb-12">YZ destekli afet dayanıklılığı simülasyonu</p>
-
-      <div class="grid md:grid-cols-3 gap-6">
-        ${Object.entries(senaryolar).map(([key,s]) => `
-          <button onclick="secSenaryo('${key}')"
-            class="glass rounded-3xl p-8 card-hover bg-gradient-to-br ${s.renk}">
-            <h2 class="text-3xl font-bold mb-4">${s.ad}</h2>
-            <p>${s.aciklama}</p>
-          </button>
-        `).join('')}
-      </div>
+    <div id="app" class="max-w-4xl mx-auto p-4 md:p-8">
+        <!-- Oyun buraya render edilecek -->
     </div>
-  `;
-}
 
-function secSenaryo(id) {
-  state.senaryo = senaryolar[id];
-  state.ekran = 'sektor';
-  render();
-}
+    <script>
+        // OYUN VERİLERİ (PDF'den Aktarılanlar)
+        const SECTORS = [
+            { id: 'households', name: 'Hanehalkı', icon: 'home', desc: 'Aileler ve bireyler. Temel ihtiyaçlar ve yerel dayanışma odağı.', budget: 1500 },
+            { id: 'government', name: 'Yerel Yönetim', icon: 'building', desc: 'Belediye ve Valilik. Altyapı ve koordinasyon sorumluluğu.', budget: 3000 },
+            { id: 'responders', name: 'İlk Müdahale', icon: 'ambulance', desc: 'İtfaiye, AFAD ve Sağlık ekipleri. Hayat kurtarma önceliği.', budget: 2500 },
+            { id: 'business', name: 'İş Dünyası', icon: 'briefcase', desc: 'Yerel marketler ve fabrikalar. Lojistik ve ekonomik süreklilik.', budget: 2000 },
+            { id: 'community', name: 'Topluluk Grupları', icon: 'users', desc: 'STK\'lar ve dini gruplar. Sosyal destek ve gönüllü gücü.', budget: 1800 },
+            { id: 'federal', name: 'Federal Hükümet', icon: 'landmark', desc: 'Üst düzey kaynaklar ve uzun vadeli planlama.', budget: 4000 }
+        ];
 
-// =========================================
-// SEKTÖR
-// =========================================
+        const RESOURCE_CARDS = [
+            { id: 1, name: 'Jeneratör', cost: 400, category: 'Enerji', icon: 'zap', sectors: ['government', 'business', 'responders'] },
+            { id: 2, name: 'Su Arıtma Seti', cost: 200, category: 'Sağlık', icon: 'droplets', sectors: ['households', 'community'] },
+            { id: 3, name: 'Arama Kurtarma Köpeği', cost: 600, category: 'Lojistik', icon: 'dog', sectors: ['responders'] },
+            { id: 4, name: 'Uydu Telefonu', cost: 500, category: 'İletişim', icon: 'phone', sectors: ['government', 'federal'] },
+            { id: 5, name: 'Tıbbi Malzeme Çantası', cost: 300, category: 'Sağlık', icon: 'cross', sectors: ['households', 'responders', 'community'] },
+            { id: 6, name: 'Ağır İş Makinesi', cost: 800, category: 'Altyapı', icon: 'truck', sectors: ['government', 'business'] },
+            { id: 7, name: 'Hazır Gıda Paketi', cost: 150, category: 'Gıda', icon: 'utensils', sectors: ['households', 'community', 'business'] },
+            { id: 8, name: 'Psikososyal Destek Ekibi', cost: 350, category: 'Sosyal', icon: 'heart', sectors: ['community', 'federal'] },
+            { id: 9, name: 'Dron Gözlem Ekibi', cost: 450, category: 'Teknoloji', icon: 'eye', sectors: ['federal', 'responders'] },
+            { id: 10, name: 'Geçici Barınma Çadırı', cost: 300, category: 'Barınma', icon: 'tent', sectors: ['government', 'federal', 'community'] }
+        ];
 
-function renderSektor() {
-  app.innerHTML = `
-    <div>
-      <h2 class="text-4xl font-bold mb-8">Sektörünü Seç</h2>
+        const CHALLENGES = {
+            'Sel': [
+                { id: 1, title: 'Midtown Su Baskını', desc: 'Şehir merkezi sular altında kalıyor. Elektrik kesintisi kapıda.', requirements: ['Enerji', 'Altyapı'], penalty: 20 },
+                { id: 2, title: 'Mahsur Kalanlar', desc: 'Huzurevi bölgesinde tahliye gerekiyor.', requirements: ['Lojistik', 'Sağlık'], penalty: 30 },
+                { id: 3, title: 'İçme Suyu Krizi', desc: 'Şehir şebekesi kirlendi.', requirements: ['Sağlık', 'Gıda'], penalty: 25 }
+            ],
+            'Deprem': [
+                { id: 1, title: 'Enkaz Altında Sesler', desc: 'Downtown bölgesinde çöken binalar var.', requirements: ['Lojistik', 'Teknoloji'], penalty: 40 },
+                { id: 2, title: 'Yangın Riski', desc: 'Doğalgaz boruları hasar gördü.', requirements: ['Altyapı', 'Enerji'], penalty: 20 },
+                { id: 3, title: 'İletişim Kopukluğu', desc: 'Baz istasyonları devre dışı.', requirements: ['İletişim', 'Sosyal'], penalty: 15 }
+            ]
+        };
 
-      <div class="grid md:grid-cols-3 gap-6">
-        ${sektorler.map(s => `
-          <button onclick="secSektor('${s.id}')"
-            class="glass rounded-2xl p-6 card-hover">
-            <div class="${s.renk} w-16 h-16 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-              <i data-lucide="${s.icon}" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-2xl font-bold">${s.ad}</h3>
-          </button>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
+        const NEWS_EVENTS = [
+            "Hastaneler tam kapasiteye ulaştı!",
+            "Sosyal medyada yayılan yanlış bilgi paniği artırıyor.",
+            "Yağışların şiddetini artırması bekleniyor.",
+            "Gönüllü bir grup yardıma hazır olduğunu bildirdi.",
+            "Ana arter yollardan biri kapandı!"
+        ];
 
-function secSektor(id) {
-  state.sektor = sektorler.find(s => s.id === id);
-  state.ekran = 'prepare';
-  render();
-}
+        // OYUN DURUMU (STATE)
+        let state = {
+            phase: 'start', // start, sector, prepare, disaster, respond, result
+            scenario: null,
+            selectedSector: null,
+            budget: 0,
+            inventory: [],
+            resilienceScore: 100,
+            completedChallenges: [],
+            currentNews: "",
+            timer: 0
+        };
 
-// =========================================
-// PREPARE PHASE
-// =========================================
+        // UI RENDER FONKSİYONLARI
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
 
-function renderPrepare() {
+            switch(state.phase) {
+                case 'start': renderStart(app); break;
+                case 'sector': renderSectorSelection(app); break;
+                case 'prepare': renderPreparePhase(app); break;
+                case 'disaster': renderDisasterTransition(app); break;
+                case 'respond': renderRespondPhase(app); break;
+                case 'result': renderResult(app); break;
+            }
+            lucide.createIcons();
+        }
 
-  const filtreli = kaynaklar.filter(k =>
-    k.sektor === state.sektor.id
-  );
+        function renderStart(container) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <h1 class="text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-400">EXTREME EVENT</h1>
+                    <p class="text-zinc-400 mb-12 text-lg">Bir kriz anında topluluğunu ne kadar koruyabilirsin?</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <button onclick="selectScenario('Sel')" class="group p-8 rounded-2xl glass hover:bg-blue-900/20 border-blue-500/30 transition-all">
+                            <i data-lucide="waves" class="w-12 h-12 mb-4 text-blue-400 group-hover:scale-110 transition-all"></i>
+                            <h3 class="text-2xl font-semibold mb-2">Sel Senaryosu</h3>
+                            <p class="text-zinc-500 text-sm">Yoğun yağış ve nehir taşması tehdidi altındaki Coastal City.</p>
+                        </button>
+                        <button onclick="selectScenario('Deprem')" class="group p-8 rounded-2xl glass hover:bg-orange-900/20 border-orange-500/30 transition-all">
+                            <i data-lucide="mountain" class="w-12 h-12 mb-4 text-orange-400 group-hover:scale-110 transition-all"></i>
+                            <h3 class="text-2xl font-semibold mb-2">Deprem Senaryosu</h3>
+                            <p class="text-zinc-500 text-sm">Beklenmedik bir sarsıntı ve yapısal çöküntüler.</p>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
 
-  app.innerHTML = `
-    <div>
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h2 class="text-4xl font-black">Hazırlık Aşaması</h2>
-          <p class="text-slate-400">Kaynaklarını stratejik biçimde seç.</p>
-        </div>
+        function renderSectorSelection(container) {
+            container.innerHTML = `
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-2">Sektörünü Seç</h2>
+                    <p class="text-zinc-400">Her sektörün farklı bütçesi ve uzmanlık alanı vardır.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    ${SECTORS.map(s => `
+                        <div onclick="selectSector('${s.id}')" class="p-5 rounded-xl glass cursor-pointer hover:border-zinc-100 transition-all border-zinc-800">
+                            <div class="flex items-center gap-3 mb-3">
+                                <i data-lucide="${s.icon}" class="text-zinc-300"></i>
+                                <span class="font-bold text-lg">${s.name}</span>
+                            </div>
+                            <p class="text-xs text-zinc-500 mb-4">${s.desc}</p>
+                            <div class="text-sm font-mono text-emerald-400">Bütçe: ${s.budget} RP</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
 
-        <div class="glass px-6 py-4 rounded-2xl">
-          <div class="text-sm text-slate-400">Kalan Bütçe</div>
-          <div class="text-4xl font-black">${state.butce}</div>
-        </div>
-      </div>
+        function renderPreparePhase(container) {
+            const availableResources = RESOURCE_CARDS;
+            container.innerHTML = `
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h2 class="text-3xl font-bold">Hazırlık Aşaması</h2>
+                        <p class="text-zinc-400">Senaryo: ${state.scenario} | Sektör: ${state.selectedSector.name}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm uppercase text-zinc-500">Kalan Bütçe</div>
+                        <div class="text-3xl font-mono text-emerald-400">${state.budget} RP</div>
+                    </div>
+                </div>
 
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        ${filtreli.map(k => `
-          <div class="glass rounded-2xl p-6">
-            <div class="flex justify-between mb-4">
-              <i data-lucide="${k.ikon}" class="w-10 h-10"></i>
-              <div class="text-right">
-                <div class="text-yellow-400 font-bold">${k.maliyet} Bütçe</div>
-                <div class="text-green-400">+${k.etki} Direnç</div>
-              </div>
-            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    ${availableResources.map(r => {
+                        const canAfford = state.budget >= r.cost;
+                        const isSectorSpecific = r.sectors.includes(state.selectedSector.id);
+                        return `
+                            <div class="p-4 rounded-xl glass flex justify-between items-center ${isSectorSpecific ? 'border-l-4 border-l-blue-500' : ''}">
+                                <div class="flex gap-4 items-center">
+                                    <div class="bg-zinc-800 p-3 rounded-lg"><i data-lucide="${r.icon}" class="w-5 h-5"></i></div>
+                                    <div>
+                                        <div class="font-bold">${r.name}</div>
+                                        <div class="text-xs text-zinc-500">${r.category} ${isSectorSpecific ? '• Sektörel' : ''}</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="font-mono text-sm">${r.cost} RP</div>
+                                    <button 
+                                        onclick="buyResource(${r.id})" 
+                                        ${!canAfford ? 'disabled' : ''}
+                                        class="px-3 py-1 rounded bg-zinc-100 text-zinc-900 text-sm font-bold disabled:opacity-30">
+                                        Ekle
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
 
-            <h3 class="text-xl font-bold mb-2">${k.ad}</h3>
-            <p class="text-slate-400 mb-4">${k.aciklama}</p>
+                <div class="sticky bottom-4 p-4 rounded-xl bg-zinc-900 border border-zinc-700 flex justify-between items-center shadow-2xl">
+                    <div class="flex -space-x-2">
+                        ${state.inventory.length === 0 ? '<span class="text-zinc-500 text-sm italic">Envanter boş...</span>' : 
+                            state.inventory.map(r => `<div title="${r.name}" class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-900 flex items-center justify-center"><i data-lucide="${r.icon}" class="w-4 h-4"></i></div>`).join('')
+                        }
+                    </div>
+                    <button onclick="startDisaster()" class="bg-red-600 hover:bg-red-500 px-8 py-3 rounded-lg font-bold text-lg transition-all">
+                        HAZIRIM!
+                    </button>
+                </div>
+            `;
+        }
 
-            <button onclick="kaynakSec('${k.ad}')"
-              class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl font-bold">
-              Kaynağı Al
-            </button>
-          </div>
-        `).join('')}
-      </div>
+        function renderDisasterTransition(container) {
+            container.innerHTML = `
+                <div class="fixed inset-0 flex items-center justify-center emergency-bg z-50 p-6 text-center">
+                    <div class="animate-bounce mb-8">
+                        <i data-lucide="alert-triangle" class="w-32 h-32 text-red-600 mx-auto" style="filter: drop-shadow(0 0 20px rgba(220,38,38,0.5))"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-6xl font-black text-white mb-4">SON DAKİKA!</h1>
+                        <p class="text-2xl text-zinc-300">Büyük ${state.scenario} Felaketi Şehri Vurdu!</p>
+                        <p class="mt-8 text-zinc-500 animate-pulse">Saniyeler içinde müdahale aşamasına geçiliyor...</p>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => {
+                state.phase = 'respond';
+                render();
+            }, 3500);
+        }
 
-      <button onclick="baslatAfet()"
-        class="mt-10 w-full bg-red-700 hover:bg-red-600 py-5 rounded-2xl text-2xl font-black pulse-alert">
-        Afeti Başlat
-      </button>
-    </div>
-  `;
-}
+        function renderRespondPhase(container) {
+            const activeChallenges = CHALLENGES[state.scenario].filter(c => !state.completedChallenges.includes(c.id));
+            
+            container.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-2xl font-bold flex items-center gap-2">
+                                <i data-lucide="activity" class="text-red-500"></i> Mevcut Krizler
+                            </h2>
+                            <div class="text-zinc-400 text-sm">Toplumsal Direnç: <span class="text-white font-mono font-bold">${state.resilienceScore}%</span></div>
+                        </div>
 
-function kaynakSec(ad) {
-  const k = kaynaklar.find(x => x.ad === ad);
+                        ${activeChallenges.length === 0 ? `
+                            <div class="p-12 text-center glass rounded-2xl">
+                                <i data-lucide="check-circle" class="w-16 h-16 text-emerald-500 mx-auto mb-4"></i>
+                                <h3 class="text-xl font-bold">Tüm Görevler Tamamlandı!</h3>
+                                <button onclick="endGame()" class="mt-4 bg-zinc-100 text-zinc-900 px-6 py-2 rounded-lg font-bold">Sonucu Gör</button>
+                            </div>
+                        ` : activeChallenges.map(c => `
+                            <div class="p-6 rounded-2xl glass border-l-4 border-l-red-500">
+                                <h3 class="text-xl font-bold mb-2">${c.title}</h3>
+                                <p class="text-zinc-400 text-sm mb-4">${c.desc}</p>
+                                <div class="flex flex-wrap gap-2 mb-4">
+                                    ${c.requirements.map(req => `<span class="px-2 py-1 bg-red-950 text-red-300 text-[10px] uppercase font-bold rounded">${req}</span>`).join('')}
+                                </div>
+                                <div class="flex gap-2">
+                                    ${state.inventory.length === 0 ? '<span class="text-red-400 text-xs italic">Kullanılabilecek kaynak kalmadı!</span>' : 
+                                        state.inventory.map(item => `
+                                            <button onclick="solveChallenge(${c.id}, ${item.id})" class="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg group relative">
+                                                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                                                <span class="hidden group-hover:block absolute -top-8 left-0 bg-white text-black p-1 text-[10px] whitespace-nowrap rounded">${item.name}</span>
+                                            </button>
+                                        `).join('')
+                                    }
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
 
-  if(state.butce >= k.maliyet) {
-    state.butce -= k.maliyet;
-    state.skor += k.etki;
-    state.secilenKaynaklar.push(k);
-    render();
-  }
-}
+                    <div class="space-y-6">
+                        <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800">
+                            <h4 class="text-sm font-bold uppercase text-zinc-500 mb-4 flex items-center gap-2">
+                                <i data-lucide="radio" class="w-4 h-4"></i> Haber Bülteni
+                            </h4>
+                            <div id="news-ticker" class="text-sm italic text-orange-400 animate-pulse">
+                                ${state.currentNews || "Sakin kalınız, yetkilileri dinleyiniz."}
+                            </div>
+                        </div>
 
-// =========================================
-// AFET GEÇİŞİ
-// =========================================
+                        <div class="p-5 rounded-2xl glass">
+                            <h4 class="text-sm font-bold uppercase text-zinc-500 mb-2">Dirençlilik Durumu</h4>
+                            <div class="w-full bg-zinc-800 h-3 rounded-full overflow-hidden mb-2">
+                                <div class="progress-bar h-full bg-red-500" style="width: ${state.resilienceScore}%"></div>
+                            </div>
+                            <p class="text-[10px] text-zinc-500 italic text-center">Her çözülmeyen kriz puanınızı düşürür.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
-function baslatAfet() {
-  state.ekran = 'afet';
-  render();
+        function renderResult(container) {
+            const success = state.resilienceScore > 50;
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto text-center py-12">
+                    <div class="mb-8">
+                        ${success ? 
+                            '<i data-lucide="award" class="w-24 h-24 text-yellow-500 mx-auto"></i>' : 
+                            '<i data-lucide="frown" class="w-24 h-24 text-zinc-600 mx-auto"></i>'
+                        }
+                    </div>
+                    <h2 class="text-4xl font-black mb-4">GÖREV RAPORU</h2>
+                    <div class="text-6xl font-mono mb-8 ${success ? 'text-emerald-400' : 'text-red-500'}">${state.resilienceScore} / 100</div>
+                    
+                    <div class="p-6 rounded-2xl glass text-left mb-8 space-y-4">
+                        <p class="text-zinc-300">
+                            <strong>Analiz:</strong> ${state.selectedSector.name} olarak katıldığın bu simülasyonda 
+                            ${state.completedChallenges.length} krizi başarıyla yönettin. 
+                            ${success ? 'Topluluk büyük ölçüde korundu.' : 'Topluluk ağır hasar aldı.'}
+                        </p>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="p-3 bg-zinc-900 rounded-lg">
+                                <div class="text-zinc-500 uppercase text-[10px]">Kalan Kaynak</div>
+                                <div class="font-bold">${state.inventory.length} Adet</div>
+                            </div>
+                            <div class="p-3 bg-zinc-900 rounded-lg">
+                                <div class="text-zinc-500 uppercase text-[10px]">Çözülen Kriz</div>
+                                <div class="font-bold">${state.completedChallenges.length} Adet</div>
+                            </div>
+                        </div>
+                    </div>
 
-  setTimeout(() => {
-    state.ekran = 'respond';
-    render();
-    breakingNews();
-  }, 3500);
-}
+                    <button onclick="location.reload()" class="bg-zinc-100 text-zinc-900 px-8 py-4 rounded-xl font-bold hover:bg-white transition-all">
+                        YENİDEN DENE
+                    </button>
+                </div>
+            `;
+        }
 
-function renderAfet() {
-  app.innerHTML = `
-    <div class="min-h-[70vh] flex items-center justify-center text-center">
-      <div>
-        <div class="text-red-500 text-7xl font-black mb-6 animate-pulse">AFET BAŞLADI</div>
-        <div class="text-3xl mb-4">${state.senaryo.ad}</div>
-        <div class="text-slate-400">${rastgele(state.senaryo.olaylar)}</div>
-      </div>
-    </div>
-  `;
-}
+        // OYUN MANTIĞI FONKSİYONLARI
+        function selectScenario(s) {
+            state.scenario = s;
+            state.phase = 'sector';
+            render();
+        }
 
-// =========================================
-// RESPOND PHASE
-// =========================================
+        function selectSector(sectorId) {
+            const sector = SECTORS.find(s => s.id === sectorId);
+            state.selectedSector = sector;
+            state.budget = sector.budget;
+            state.phase = 'prepare';
+            render();
+        }
 
-function renderRespond() {
-  app.innerHTML = `
-    <div>
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h2 class="text-4xl font-black">Müdahale Aşaması</h2>
-          <p class="text-slate-400">Krizleri çöz ve toplumu ayakta tut.</p>
-        </div>
+        function buyResource(resId) {
+            const resource = RESOURCE_CARDS.find(r => r.id === resId);
+            if (state.budget >= resource.cost) {
+                state.budget -= resource.cost;
+                state.inventory.push({ ...resource, instanceId: Date.now() + Math.random() });
+                render();
+            }
+        }
 
-        <button onclick="breakingNews()"
-          class="bg-red-700 hover:bg-red-600 px-6 py-3 rounded-xl font-bold">
-          Beklenmedik Haber
-        </button>
-      </div>
+        function startDisaster() {
+            state.phase = 'disaster';
+            render();
+            // Müdahale aşamasına geçtiğinde haber akışını başlat
+            startNewsCycle();
+        }
 
-      <div id="haberKutusu" class="mb-6"></div>
+        function solveChallenge(challengeId, resourceId) {
+            const challenge = CHALLENGES[state.scenario].find(c => c.id === challengeId);
+            const resourceIdx = state.inventory.findIndex(r => r.id === resourceId);
+            const resource = state.inventory[resourceIdx];
 
-      <div class="grid lg:grid-cols-2 gap-6">
+            // Basitleştirilmiş kural: Eğer kaynak kategorisi gereksinimlerden biriyse görevi tamamla
+            if (challenge.requirements.includes(resource.category)) {
+                state.completedChallenges.push(challengeId);
+                state.inventory.splice(resourceIdx, 1);
+            } else {
+                // Yanlış kaynak puan düşürür
+                state.resilienceScore -= 5;
+            }
+            render();
+        }
 
-        <div class="glass rounded-2xl p-6">
-          <h3 class="text-2xl font-bold mb-4">Görev Kartları</h3>
+        function startNewsCycle() {
+            setInterval(() => {
+                if(state.phase === 'respond') {
+                    const randomNews = NEWS_EVENTS[Math.floor(Math.random() * NEWS_EVENTS.length)];
+                    state.currentNews = randomNews;
+                    
+                    // Rastgele puan düşüşü (YZ simülasyonu)
+                    const activeCount = CHALLENGES[state.scenario].length - state.completedChallenges.length;
+                    if (activeCount > 0) {
+                        state.resilienceScore -= (activeCount * 2);
+                    }
+                    if (state.resilienceScore < 0) state.resilienceScore = 0;
+                    
+                    render();
+                }
+            }, 8000);
+        }
 
-          ${challengeKartlari.map(c => `
-            <div class="border border-slate-700 rounded-xl p-4 mb-4">
-              <div class="flex justify-between mb-2">
-                <h4 class="font-bold text-xl">${c.baslik}</h4>
-                <div class="text-green-400">+${c.puan}</div>
-              </div>
+        function endGame() {
+            state.phase = 'result';
+            render();
+        }
 
-              <div class="text-slate-400 mb-4">
-                Gerekli Kaynaklar:
-                ${c.gerekli.join(', ')}
-              </div>
-
-              <button onclick="gorevCoz(${c.id})"
-                class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded-lg">
-                Görevi Çöz
-              </button>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="glass rounded-2xl p-6">
-          <h3 class="text-2xl font-bold mb-4">Envanter</h3>
-
-          <div class="space-y-3">
-            ${state.secilenKaynaklar.map(k => `
-              <div class="flex items-center gap-3 bg-slate-800 rounded-xl p-3">
-                <i data-lucide="${k.ikon}" class="w-5 h-5"></i>
-                <span>${k.ad}</span>
-              </div>
-            `).join('')}
-          </div>
-
-          <button onclick="oyunuBitir()"
-            class="mt-8 w-full bg-emerald-700 hover:bg-emerald-600 py-4 rounded-xl text-xl font-bold">
-            Simülasyonu Bitir
-          </button>
-        </div>
-
-      </div>
-    </div>
-  `;
-}
-
-function gorevCoz(id) {
-  const gorev = challengeKartlari.find(g => g.id === id);
-
-  const envanter = state.secilenKaynaklar.map(k => k.ad);
-
-  const basarili = gorev.gerekli.every(g => envanter.includes(g));
-
-  if(basarili) {
-    state.skor += gorev.puan;
-    alert('Görev başarıyla çözüldü!');
-  } else {
-    state.skor -= 5;
-    alert('Yetersiz kaynak!');
-  }
-
-  render();
-}
-
-// =========================================
-// YZ HABER SİSTEMİ
-// =========================================
-
-function breakingNews() {
-
-  const haberler = [
-    'X mahallesi tamamen su altında kaldı!',
-    'Hastanelerde jeneratör ihtiyacı oluştu!',
-    'Ana köprü çöktü, ulaşım kesildi!',
-    'Sosyal medyada yanlış bilgi yayılıyor!',
-    'Tahliye merkezlerinde kapasite doldu!',
-    'Yeni artçı deprem riski bildirildi!'
-  ];
-
-  const haber = rastgele(haberler);
-
-  document.getElementById('haberKutusu').innerHTML = `
-    <div class="bg-red-950 border border-red-700 rounded-2xl p-6 pulse-alert">
-      <div class="text-red-400 font-black text-lg mb-2">SON DAKİKA</div>
-      <div class="text-2xl font-bold">${haber}</div>
-    </div>
-  `;
-
-  state.loglar.push(haber);
-}
-
-// =========================================
-// SONUÇ
-// =========================================
-
-function oyunuBitir() {
-  state.ekran = 'sonuc';
-  render();
-}
-
-function renderSonuc() {
-
-  let derece = 'Kırılgan';
-
-  if(state.skor > 40) derece = 'Dayanıklı';
-  else if(state.skor > 25) derece = 'Gelişmekte';
-
-  app.innerHTML = `
-    <div class="max-w-4xl mx-auto text-center py-12">
-      <h2 class="text-5xl font-black mb-6">Simülasyon Tamamlandı</h2>
-
-      <div class="glass rounded-3xl p-10">
-
-        <div class="text-7xl font-black text-emerald-400 mb-4">
-          ${state.skor}
-        </div>
-
-        <div class="text-3xl mb-8">
-          Toplumsal Dirençlilik Seviyesi: ${derece}
-        </div>
-
-        <div class="text-left space-y-4">
-          <div>
-            ✔ Güçlü kaynak koordinasyonu sağlandı.
-          </div>
-
-          <div>
-            ✔ ${state.secilenKaynaklar.length} stratejik kaynak kullanıldı.
-          </div>
-
-          <div>
-            ✔ ${state.loglar.length} beklenmedik kriz yönetildi.
-          </div>
-        </div>
-
-        <button onclick="yenidenBaslat()"
-          class="mt-10 bg-cyan-600 hover:bg-cyan-500 px-8 py-4 rounded-2xl text-xl font-bold">
-          Yeniden Oyna
-        </button>
-
-      </div>
-    </div>
-  `;
-}
-
-function yenidenBaslat() {
-  location.reload();
-}
-
-function rastgele(arr) {
-  return arr[Math.floor(Math.random()*arr.length)];
-}
-
-render();
-
-</script>
+        // Başlangıç
+        window.onload = render;
+    </script>
 </body>
 </html>
